@@ -3,15 +3,54 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { MessageCircle, X, Send } from "lucide-react";
+import { useApp } from "@/contexts/AppContext";
+import { useToast } from "@/hooks/use-toast";
 
 export const FloatingChat = () => {
+  const { selectedDocument, addMessage } = useApp();
   const [isOpen, setIsOpen] = useState(false);
   const [message, setMessage] = useState("");
+  const { toast } = useToast();
 
   const handleSend = () => {
     if (!message.trim()) return;
-    // Handle sending message
+    
+    if (!selectedDocument) {
+      toast({
+        title: "No document selected",
+        description: "Please select a document from the sidebar first.",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    // Add user message
+    addMessage({
+      id: Date.now().toString(),
+      type: "user",
+      content: message,
+      timestamp: new Date(),
+      documentId: selectedDocument.id
+    });
+
+    // Simulate quick AI response
+    setTimeout(() => {
+      addMessage({
+        id: (Date.now() + 1).toString(),
+        type: "assistant",
+        content: "Thanks for your quick question! I'm analyzing the document to provide you with an accurate answer.",
+        timestamp: new Date(),
+        documentId: selectedDocument.id
+      });
+    }, 500);
+
     setMessage("");
+    setIsOpen(false);
+    
+    toast({
+      title: "Question sent",
+      description: "Check the chat panel for the response.",
+    });
   };
 
   if (!isOpen) {
@@ -43,7 +82,10 @@ export const FloatingChat = () => {
       <CardContent className="p-4 h-full flex flex-col">
         <div className="flex-1 mb-4">
           <p className="text-sm text-muted-foreground">
-            Ask a quick question about your current document.
+            {selectedDocument 
+              ? `Ask a quick question about "${selectedDocument.name}".`
+              : "Select a document first to ask questions."
+            }
           </p>
         </div>
         
@@ -51,13 +93,13 @@ export const FloatingChat = () => {
           <Input
             value={message}
             onChange={(e) => setMessage(e.target.value)}
-            placeholder="What would you like to know?"
+            placeholder={selectedDocument ? "What would you like to know?" : "Select a document first"}
             className="pr-12"
             onKeyPress={(e) => e.key === 'Enter' && handleSend()}
           />
           <Button
             onClick={handleSend}
-            disabled={!message.trim()}
+            disabled={!message.trim() || !selectedDocument}
             size="sm"
             className="absolute right-1 top-1 h-8 w-8 p-0"
           >

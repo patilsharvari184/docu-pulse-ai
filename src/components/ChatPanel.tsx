@@ -20,73 +20,54 @@ import {
   Paperclip,
   MoreVertical
 } from "lucide-react";
-
-interface ChatMessage {
-  id: string;
-  type: 'user' | 'assistant';
-  content: string;
-  citations?: string[];
-  tableReference?: boolean;
-  timestamp: Date;
-}
+import { useApp } from "@/contexts/AppContext";
+import type { ChatMessage } from "@/contexts/AppContext";
 
 export const ChatPanel = () => {
+  const { selectedDocument, messages, addMessage } = useApp();
   const [message, setMessage] = useState("");
   const [isTyping, setIsTyping] = useState(false);
   const [model, setModel] = useState("gpt-4o-mini");
   const [language, setLanguage] = useState("en");
   const [stickToFile, setStickToFile] = useState(true);
 
-  const [messages, setMessages] = useState<ChatMessage[]>([
-    {
-      id: "1",
-      type: "assistant",
-      content: "Hello! I'm ready to help you analyze your PDF document. Ask me anything about 'Research Paper - AI in Healthcare.pdf'.",
-      timestamp: new Date()
-    },
-    {
-      id: "2", 
-      type: "user",
-      content: "What are the main applications of AI mentioned in healthcare?",
-      timestamp: new Date()
-    },
-    {
-      id: "3",
-      type: "assistant", 
-      content: "Based on the document, there are several key AI applications in healthcare:\n\n1. **Diagnostic Imaging**: AI algorithms for medical image analysis, particularly in radiology and pathology\n2. **Drug Discovery**: Machine learning models to accelerate pharmaceutical research\n3. **Predictive Analytics**: Early warning systems for patient deterioration\n4. **Electronic Health Records**: Natural language processing for clinical documentation\n5. **Personalized Treatment**: AI-driven treatment recommendations based on patient data",
-      citations: ["Page 3", "Page 7", "Page 12"],
-      tableReference: true,
-      timestamp: new Date()
-    }
-  ]);
-
   const handleSendMessage = async () => {
-    if (!message.trim()) return;
+    if (!message.trim() || !selectedDocument) return;
 
     const userMessage: ChatMessage = {
       id: Date.now().toString(),
       type: "user",
       content: message,
-      timestamp: new Date()
+      timestamp: new Date(),
+      documentId: selectedDocument.id
     };
 
-    setMessages(prev => [...prev, userMessage]);
+    addMessage(userMessage);
     setMessage("");
     setIsTyping(true);
 
     // Simulate AI response
     setTimeout(() => {
+      const responses = [
+        "I'd be happy to help with that question. Let me analyze the document content to provide you with accurate information based on the PDF.",
+        "Based on my analysis of the document, here's what I found...",
+        "According to the information in this PDF, I can provide the following insights...",
+        "Let me examine the relevant sections of the document to answer your question accurately."
+      ];
+      
       const aiResponse: ChatMessage = {
         id: (Date.now() + 1).toString(),
         type: "assistant",
-        content: "I'd be happy to help with that question. Let me analyze the document content to provide you with accurate information based on the PDF.",
-        citations: ["Page 5", "Page 9"],
-        timestamp: new Date()
+        content: responses[Math.floor(Math.random() * responses.length)],
+        citations: [`Page ${Math.floor(Math.random() * selectedDocument.pages) + 1}`, `Page ${Math.floor(Math.random() * selectedDocument.pages) + 1}`],
+        tableReference: Math.random() > 0.7, // 30% chance of table reference
+        timestamp: new Date(),
+        documentId: selectedDocument.id
       };
       
-      setMessages(prev => [...prev, aiResponse]);
+      addMessage(aiResponse);
       setIsTyping(false);
-    }, 2000);
+    }, 1500 + Math.random() * 1000); // Random delay between 1.5-2.5 seconds
   };
 
   const handleKeyPress = (e: React.KeyboardEvent) => {
@@ -108,8 +89,8 @@ export const ChatPanel = () => {
         </div>
         
         <div className="flex items-center gap-2 text-sm text-muted-foreground">
-          <div className="w-2 h-2 bg-green-500 rounded-full"></div>
-          <span>Ready to answer questions</span>
+          <div className={`w-2 h-2 rounded-full ${selectedDocument ? 'bg-green-500' : 'bg-gray-400'}`}></div>
+          <span>{selectedDocument ? `Ready to analyze "${selectedDocument.name}"` : 'Select a document to start'}</span>
         </div>
       </div>
 
@@ -229,7 +210,7 @@ export const ChatPanel = () => {
             value={message}
             onChange={(e) => setMessage(e.target.value)}
             onKeyPress={handleKeyPress}
-            placeholder="Ask a question about the document..."
+            placeholder={selectedDocument ? `Ask about ${selectedDocument.name}...` : "Select a document first..."}
             className="pr-20"
           />
           <div className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-1">
@@ -238,7 +219,7 @@ export const ChatPanel = () => {
             </Button>
             <Button 
               onClick={handleSendMessage}
-              disabled={!message.trim()}
+              disabled={!message.trim() || !selectedDocument}
               size="sm" 
               className="w-6 h-6 p-0"
             >

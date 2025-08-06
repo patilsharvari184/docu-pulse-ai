@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -20,63 +20,52 @@ import {
   HardDrive,
   ChevronDown
 } from "lucide-react";
-
-interface PDFDocument {
-  id: string;
-  name: string;
-  uploadDate: string;
-  status: 'completed' | 'processing' | 'error';
-  size: string;
-  pages: number;
-}
+import { useApp, type PDFDocument } from "@/contexts/AppContext";
+import { useToast } from "@/hooks/use-toast";
 
 export const Sidebar = () => {
+  const { documents, selectedDocument, setSelectedDocument, uploadDocument, isUploading } = useApp();
   const [searchQuery, setSearchQuery] = useState("");
   const [sortBy, setSortBy] = useState("created");
-  const [selectedDoc, setSelectedDoc] = useState("1");
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const { toast } = useToast();
 
-  const documents: PDFDocument[] = [
-    {
-      id: "1",
-      name: "Research Paper - AI in Healthcare.pdf",
-      uploadDate: "2024-01-15",
-      status: "completed",
-      size: "2.4 MB",
-      pages: 24
-    },
-    {
-      id: "2", 
-      name: "Financial Report Q3 2023.pdf",
-      uploadDate: "2024-01-14",
-      status: "completed",
-      size: "1.8 MB",
-      pages: 18
-    },
-    {
-      id: "3",
-      name: "Technical Documentation.pdf", 
-      uploadDate: "2024-01-13",
-      status: "processing",
-      size: "5.2 MB",
-      pages: 45
-    },
-    {
-      id: "4",
-      name: "Business Plan 2024.pdf",
-      uploadDate: "2024-01-12", 
-      status: "error",
-      size: "3.1 MB",
-      pages: 32
-    },
-    {
-      id: "5",
-      name: "User Manual v2.1.pdf",
-      uploadDate: "2024-01-11",
-      status: "completed", 
-      size: "1.2 MB",
-      pages: 12
+  const handleUpload = () => {
+    fileInputRef.current?.click();
+  };
+
+  const handleFileChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (file) {
+      if (file.type !== 'application/pdf') {
+        toast({
+          title: "Invalid file type",
+          description: "Please upload a PDF file.",
+          variant: "destructive"
+        });
+        return;
+      }
+      
+      try {
+        await uploadDocument(file);
+        toast({
+          title: "Upload started",
+          description: "Your PDF is being processed.",
+        });
+      } catch (error) {
+        toast({
+          title: "Upload failed",
+          description: "Failed to upload the PDF. Please try again.",
+          variant: "destructive"
+        });
+      }
     }
-  ];
+    
+    // Reset the input
+    if (event.target) {
+      event.target.value = '';
+    }
+  };
 
   const getStatusIcon = (status: PDFDocument['status']) => {
     switch (status) {
@@ -100,9 +89,19 @@ export const Sidebar = () => {
     }
   };
 
-  const filteredDocuments = documents.filter(doc =>
-    doc.name.toLowerCase().includes(searchQuery.toLowerCase())
-  );
+  const filteredDocuments = documents
+    .filter(doc => doc.name.toLowerCase().includes(searchQuery.toLowerCase()))
+    .sort((a, b) => {
+      switch (sortBy) {
+        case 'name':
+          return a.name.localeCompare(b.name);
+        case 'size':
+          return parseFloat(a.size) - parseFloat(b.size);
+        case 'created':
+        default:
+          return new Date(b.uploadDate).getTime() - new Date(a.uploadDate).getTime();
+      }
+    });
 
   return (
     <div className="w-80 border-r border-neutral-200 bg-card flex flex-col h-full">
@@ -110,10 +109,22 @@ export const Sidebar = () => {
       <div className="p-4 border-b border-neutral-200">
         <div className="flex items-center justify-between mb-4">
           <h2 className="text-lg font-semibold text-foreground">Documents</h2>
-          <Button size="sm" className="bg-primary text-primary-foreground">
+          <Button 
+            size="sm" 
+            className="bg-primary text-primary-foreground"
+            onClick={handleUpload}
+            disabled={isUploading}
+          >
             <Upload className="w-4 h-4 mr-2" />
-            Upload
+            {isUploading ? "Uploading..." : "Upload"}
           </Button>
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept=".pdf"
+            onChange={handleFileChange}
+            className="hidden"
+          />
         </div>
 
         {/* Search */}
@@ -161,9 +172,9 @@ export const Sidebar = () => {
           {filteredDocuments.map((doc) => (
             <div
               key={doc.id}
-              onClick={() => setSelectedDoc(doc.id)}
+              onClick={() => setSelectedDocument(doc)}
               className={`p-3 rounded-lg cursor-pointer transition-all mb-2 ${
-                selectedDoc === doc.id
+                selectedDocument?.id === doc.id
                   ? "bg-purple-accent-light border border-primary shadow-md"
                   : "hover:bg-neutral-100 border border-transparent"
               }`}

@@ -1,4 +1,3 @@
-import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -13,17 +12,44 @@ import {
   FileText,
   Calendar
 } from "lucide-react";
+import { useApp } from "@/contexts/AppContext";
+import { useToast } from "@/hooks/use-toast";
 import sampleDocument from "@/assets/sample-document.jpg";
 
 export const DocumentViewer = () => {
-  const [currentPage, setCurrentPage] = useState(1);
-  const [zoom, setZoom] = useState(100);
-  const totalPages = 24;
+  const { selectedDocument, currentPage, setCurrentPage, zoom, setZoom } = useApp();
+  const { toast } = useToast();
 
   const handleZoomIn = () => setZoom(Math.min(zoom + 25, 200));
   const handleZoomOut = () => setZoom(Math.max(zoom - 25, 50));
   const handlePrevPage = () => setCurrentPage(Math.max(currentPage - 1, 1));
-  const handleNextPage = () => setCurrentPage(Math.min(currentPage + 1, totalPages));
+  const handleNextPage = () => setCurrentPage(Math.min(currentPage + 1, selectedDocument?.pages || 1));
+  
+  const handleDownload = () => {
+    toast({
+      title: "Download started",
+      description: `Downloading ${selectedDocument?.name}...`,
+    });
+  };
+
+  const handleShare = () => {
+    toast({
+      title: "Share link copied",
+      description: "Document share link copied to clipboard.",
+    });
+  };
+
+  if (!selectedDocument) {
+    return (
+      <div className="flex-1 flex items-center justify-center bg-neutral-100">
+        <div className="text-center">
+          <FileText className="w-16 h-16 text-muted-foreground mx-auto mb-4" />
+          <h3 className="text-lg font-medium text-foreground mb-2">No document selected</h3>
+          <p className="text-muted-foreground">Select a document from the sidebar to view it here.</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="flex-1 flex flex-col bg-neutral-100">
@@ -36,26 +62,36 @@ export const DocumentViewer = () => {
             </div>
             <div>
               <h2 className="text-lg font-semibold text-foreground">
-                Research Paper - AI in Healthcare.pdf
+                {selectedDocument.name}
               </h2>
               <div className="flex items-center gap-4 text-sm text-muted-foreground">
                 <div className="flex items-center gap-1">
                   <Calendar className="w-4 h-4" />
-                  Uploaded Jan 15, 2024
+                  Uploaded {new Date(selectedDocument.uploadDate).toLocaleDateString()}
                 </div>
-                <Badge variant="secondary" className="bg-green-50 text-green-700 border-green-200">
-                  Ready
+                <Badge 
+                  variant="secondary" 
+                  className={
+                    selectedDocument.status === 'completed' 
+                      ? "bg-green-50 text-green-700 border-green-200"
+                      : selectedDocument.status === 'processing'
+                      ? "bg-blue-50 text-blue-700 border-blue-200"
+                      : "bg-red-50 text-red-700 border-red-200"
+                  }
+                >
+                  {selectedDocument.status === 'completed' ? 'Ready' : 
+                   selectedDocument.status === 'processing' ? 'Processing' : 'Error'}
                 </Badge>
               </div>
             </div>
           </div>
 
           <div className="flex items-center gap-2">
-            <Button variant="outline" size="sm">
+            <Button variant="outline" size="sm" onClick={handleShare}>
               <Share className="w-4 h-4 mr-2" />
               Share
             </Button>
-            <Button variant="outline" size="sm">
+            <Button variant="outline" size="sm" onClick={handleDownload}>
               <Download className="w-4 h-4 mr-2" />
               Download
             </Button>
@@ -97,14 +133,14 @@ export const DocumentViewer = () => {
             </Button>
             <div className="flex items-center gap-2 px-3">
               <span className="text-sm font-medium">
-                Page {currentPage} of {totalPages}
+                Page {currentPage} of {selectedDocument.pages}
               </span>
             </div>
             <Button 
               variant="outline" 
               size="sm" 
               onClick={handleNextPage}
-              disabled={currentPage === totalPages}
+              disabled={currentPage === selectedDocument.pages}
             >
               <ChevronRight className="w-4 h-4" />
             </Button>
@@ -143,7 +179,7 @@ export const DocumentViewer = () => {
           </div>
 
           {/* Show second page in 2-page view */}
-          {currentPage < totalPages && (
+          {currentPage < selectedDocument.pages && (
             <div className="bg-white shadow-lg rounded-lg overflow-hidden">
               <div 
                 className="relative"
