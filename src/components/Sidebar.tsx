@@ -23,6 +23,7 @@ import {
 import { useApp, type PDFDocument } from "@/contexts/AppContext";
 import { useToast } from "@/hooks/use-toast";
 import { ExternalLinkProcessor } from "./ExternalLinkProcessor";
+import { isValidPDF } from "@/utils/validation";
 
 export const Sidebar = () => {
   const { documents, selectedDocument, setSelectedDocument, uploadDocument, isUploading } = useApp();
@@ -38,7 +39,7 @@ export const Sidebar = () => {
   const handleFileChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (file) {
-      if (file.type !== 'application/pdf') {
+      if (!isValidPDF(file)) {
         toast({
           title: "Invalid file type",
           description: "Please upload a PDF file.",
@@ -47,18 +48,20 @@ export const Sidebar = () => {
         return;
       }
       
-      try {
-        await uploadDocument(file);
+      // Check file size (limit to 10MB)
+      if (file.size > 10 * 1024 * 1024) {
         toast({
-          title: "Upload started",
-          description: "Your PDF is being processed.",
-        });
-      } catch (error) {
-        toast({
-          title: "Upload failed",
-          description: "Failed to upload the PDF. Please try again.",
+          title: "File too large",
+          description: "Please upload a PDF file smaller than 10MB.",
           variant: "destructive"
         });
+        return;
+      }
+      
+      try {
+        await uploadDocument(file);
+      } catch (error) {
+        console.error('Upload error:', error);
       }
     }
     

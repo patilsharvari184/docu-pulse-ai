@@ -185,16 +185,16 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     }
   };
 
-  const processExternalLinkFunc = async (link: string): Promise<void> => {
+  const processExternalLinkFunc = async (url: string): Promise<void> => {
     setIsUploading(true);
     
     try {
-      const response = await processExternalLink(link);
+      const response = await processExternalLink(url);
       
       // Create new document entry
       const newDoc: PDFDocument = {
         id: Date.now().toString(),
-        name: link.split('/').pop() || 'External PDF',
+        name: url.split('/').pop() || 'External PDF',
         uploadDate: new Date().toISOString().split('T')[0],
         status: 'completed',
         size: 'Unknown',

@@ -12,6 +12,13 @@ export const ExternalLinkProcessor = () => {
 
   const handleProcessLink = async () => {
     if (!link.trim()) return;
+    
+    // Basic URL validation
+    try {
+      new URL(link);
+    } catch {
+      return;
+    }
 
     setIsProcessing(true);
     try {
@@ -48,6 +55,7 @@ export const ExternalLinkProcessor = () => {
             placeholder="https://example.com/document.pdf"
             disabled={isProcessing}
             className="flex-1"
+            type="url"
           />
           <Button
             onClick={handleProcessLink}
