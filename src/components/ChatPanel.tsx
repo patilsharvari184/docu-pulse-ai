@@ -22,14 +22,17 @@ import {
 } from "lucide-react";
 import { useApp } from "@/contexts/AppContext";
 import type { ChatMessage } from "@/contexts/AppContext";
+import { askQuestion } from "@/lib/api";
+import { useToast } from "@/hooks/use-toast";
 
 export const ChatPanel = () => {
-  const { selectedDocument, messages, addMessage } = useApp();
+  const { selectedDocument, messages, addMessage, documents } = useApp();
   const [message, setMessage] = useState("");
   const [isTyping, setIsTyping] = useState(false);
   const [model, setModel] = useState("gpt-4o-mini");
   const [language, setLanguage] = useState("en");
   const [stickToFile, setStickToFile] = useState(true);
+  const { toast } = useToast();
 
   const handleSendMessage = async () => {
     if (!message.trim() || !selectedDocument) return;
@@ -46,28 +49,58 @@ export const ChatPanel = () => {
     setMessage("");
     setIsTyping(true);
 
-    // Simulate AI response
-    setTimeout(() => {
-      const responses = [
-        "I'd be happy to help with that question. Let me analyze the document content to provide you with accurate information based on the PDF.",
-        "Based on my analysis of the document, here's what I found...",
-        "According to the information in this PDF, I can provide the following insights...",
-        "Let me examine the relevant sections of the document to answer your question accurately."
-      ];
+    try {
+      // Get document IDs for the query
+      const documentIds = stickToFile && selectedDocument.documentId 
+        ? [selectedDocument.documentId]
+        : documents.filter(doc => doc.documentId && doc.status === 'completed').map(doc => doc.documentId!);
+
+      if (documentIds.length === 0) {
+        throw new Error('No processed documents available');
+      }
+
+      // Call the backend API
+      const response = await askQuestion(userMessage.content, documentIds);
+      
+      // Format citations for display
+      const citations = response.citations.map(citation => citation.source);
+      const hasTableReference = response.citations.some(citation => 
+        citation.text.toLowerCase().includes('table') || citation.source.toLowerCase().includes('table')
+      );
       
       const aiResponse: ChatMessage = {
         id: (Date.now() + 1).toString(),
         type: "assistant",
-        content: responses[Math.floor(Math.random() * responses.length)],
-        citations: [`Page ${Math.floor(Math.random() * selectedDocument.pages) + 1}`, `Page ${Math.floor(Math.random() * selectedDocument.pages) + 1}`],
-        tableReference: Math.random() > 0.7, // 30% chance of table reference
+        content: response.answer,
+        citations: citations,
+        tableReference: hasTableReference,
         timestamp: new Date(),
         documentId: selectedDocument.id
       };
       
       addMessage(aiResponse);
+
+    } catch (error) {
+      console.error('Failed to get AI response:', error);
+      
+      const errorResponse: ChatMessage = {
+        id: (Date.now() + 1).toString(),
+        type: "assistant",
+        content: "I'm sorry, I encountered an error while processing your question. Please make sure the document has been successfully processed and try again.",
+        timestamp: new Date(),
+        documentId: selectedDocument.id
+      };
+      
+      addMessage(errorResponse);
+      
+      toast({
+        title: "Error",
+        description: "Failed to get AI response. Please try again.",
+        variant: "destructive"
+      });
+    } finally {
       setIsTyping(false);
-    }, 1500 + Math.random() * 1000); // Random delay between 1.5-2.5 seconds
+    }
   };
 
   const handleKeyPress = (e: React.KeyboardEvent) => {

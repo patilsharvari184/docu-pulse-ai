@@ -1,4 +1,6 @@
 import React, { createContext, useContext, useState, ReactNode } from 'react';
+import { uploadPDFs, processExternalLink } from '@/lib/api';
+import { useToast } from '@/hooks/use-toast';
 
 export interface PDFDocument {
   id: string;
@@ -8,6 +10,7 @@ export interface PDFDocument {
   size: string;
   pages: number;
   url?: string;
+  documentId?: string; // Backend document ID
 }
 
 export interface ChatMessage {
@@ -35,6 +38,7 @@ interface AppContextType {
   setIsUploading: (uploading: boolean) => void;
   addMessage: (message: ChatMessage) => void;
   uploadDocument: (file: File) => Promise<void>;
+  processExternalLink: (link: string) => Promise<void>;
 }
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
@@ -98,6 +102,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   const [currentPage, setCurrentPage] = useState(1);
   const [zoom, setZoom] = useState(100);
   const [isUploading, setIsUploading] = useState(false);
+  const { toast } = useToast();
 
   const setSelectedDocument = (doc: PDFDocument | null) => {
     setSelectedDocumentState(doc);
@@ -123,29 +128,98 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   const uploadDocument = async (file: File): Promise<void> => {
     setIsUploading(true);
     
-    // Simulate upload process
-    const newDoc: PDFDocument = {
-      id: Date.now().toString(),
-      name: file.name,
-      uploadDate: new Date().toISOString().split('T')[0],
-      status: 'processing',
-      size: `${(file.size / (1024 * 1024)).toFixed(1)} MB`,
-      pages: Math.floor(Math.random() * 50) + 10 // Random page count for demo
-    };
+    try {
+      // Create temporary document entry
+      const tempDoc: PDFDocument = {
+        id: Date.now().toString(),
+        name: file.name,
+        uploadDate: new Date().toISOString().split('T')[0],
+        status: 'processing',
+        size: `${(file.size / (1024 * 1024)).toFixed(1)} MB`,
+        pages: 0
+      };
 
-    setDocuments(prev => [newDoc, ...prev]);
-    
-    // Simulate processing time
-    setTimeout(() => {
+      setDocuments(prev => [tempDoc, ...prev]);
+      
+      // Upload to backend
+      const response = await uploadPDFs([file]);
+      
+      // Update document with backend ID and completed status
       setDocuments(prev => 
         prev.map(doc => 
-          doc.id === newDoc.id 
-            ? { ...doc, status: 'completed' as const }
+          doc.id === tempDoc.id 
+            ? { 
+                ...doc, 
+                status: 'completed' as const,
+                documentId: response.document_ids[0],
+                pages: Math.floor(Math.random() * 50) + 10 // Still random for demo
+              }
             : doc
         )
       );
+
+      toast({
+        title: "Upload successful",
+        description: `${file.name} has been processed successfully.`
+      });
+
+    } catch (error) {
+      console.error('Upload failed:', error);
+      
+      // Update document status to error
+      setDocuments(prev => 
+        prev.map(doc => 
+          doc.name === file.name && doc.status === 'processing'
+            ? { ...doc, status: 'error' as const }
+            : doc
+        )
+      );
+
+      toast({
+        title: "Upload failed",
+        description: "There was an error processing your document. Please try again.",
+        variant: "destructive"
+      });
+    } finally {
       setIsUploading(false);
-    }, 3000);
+    }
+  };
+
+  const processExternalLinkFunc = async (link: string): Promise<void> => {
+    setIsUploading(true);
+    
+    try {
+      const response = await processExternalLink(link);
+      
+      // Create new document entry
+      const newDoc: PDFDocument = {
+        id: Date.now().toString(),
+        name: link.split('/').pop() || 'External PDF',
+        uploadDate: new Date().toISOString().split('T')[0],
+        status: 'completed',
+        size: 'Unknown',
+        pages: Math.floor(Math.random() * 50) + 10,
+        documentId: response.document_id
+      };
+
+      setDocuments(prev => [newDoc, ...prev]);
+      
+      toast({
+        title: "External link processed",
+        description: "The PDF from the external link has been processed successfully."
+      });
+
+    } catch (error) {
+      console.error('External link processing failed:', error);
+      
+      toast({
+        title: "Processing failed",
+        description: "There was an error processing the external link. Please try again.",
+        variant: "destructive"
+      });
+    } finally {
+      setIsUploading(false);
+    }
   };
 
   const value: AppContextType = {
@@ -162,7 +236,8 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     setZoom,
     setIsUploading,
     addMessage,
-    uploadDocument
+    uploadDocument,
+    processExternalLink: processExternalLinkFunc
   };
 
   return <AppContext.Provider value={value}>{children}</AppContext.Provider>;

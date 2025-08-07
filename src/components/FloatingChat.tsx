@@ -5,14 +5,16 @@ import { Input } from "@/components/ui/input";
 import { MessageCircle, X, Send } from "lucide-react";
 import { useApp } from "@/contexts/AppContext";
 import { useToast } from "@/hooks/use-toast";
+import { askQuestion } from "@/lib/api";
 
 export const FloatingChat = () => {
-  const { selectedDocument, addMessage } = useApp();
+  const { selectedDocument, addMessage, documents } = useApp();
   const [isOpen, setIsOpen] = useState(false);
   const [message, setMessage] = useState("");
+  const [isLoading, setIsLoading] = useState(false);
   const { toast } = useToast();
 
-  const handleSend = () => {
+  const handleSend = async () => {
     if (!message.trim()) return;
     
     if (!selectedDocument) {
@@ -24,33 +26,75 @@ export const FloatingChat = () => {
       return;
     }
 
+    if (!selectedDocument.documentId) {
+      toast({
+        title: "Document not ready",
+        description: "Please wait for the document to finish processing.",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    setIsLoading(true);
+
     // Add user message
-    addMessage({
+    const userMessage = {
       id: Date.now().toString(),
-      type: "user",
+      type: "user" as const,
       content: message,
       timestamp: new Date(),
       documentId: selectedDocument.id
-    });
+    };
+    
+    addMessage(userMessage);
 
-    // Simulate quick AI response
-    setTimeout(() => {
+    try {
+      // Call the backend API
+      const response = await askQuestion(message, [selectedDocument.documentId]);
+      
+      // Format citations for display
+      const citations = response.citations.map(citation => citation.source);
+      const hasTableReference = response.citations.some(citation => 
+        citation.text.toLowerCase().includes('table') || citation.source.toLowerCase().includes('table')
+      );
+      
+      // Add AI response
       addMessage({
         id: (Date.now() + 1).toString(),
         type: "assistant",
-        content: "Thanks for your quick question! I'm analyzing the document to provide you with an accurate answer.",
+        content: response.answer,
+        citations: citations,
+        tableReference: hasTableReference,
         timestamp: new Date(),
         documentId: selectedDocument.id
       });
-    }, 500);
 
-    setMessage("");
-    setIsOpen(false);
-    
-    toast({
-      title: "Question sent",
-      description: "Check the chat panel for the response.",
-    });
+      toast({
+        title: "Question answered",
+        description: "Check the chat panel for the response.",
+      });
+
+    } catch (error) {
+      console.error('Failed to get AI response:', error);
+      
+      addMessage({
+        id: (Date.now() + 1).toString(),
+        type: "assistant",
+        content: "I'm sorry, I encountered an error while processing your question. Please try again.",
+        timestamp: new Date(),
+        documentId: selectedDocument.id
+      });
+
+      toast({
+        title: "Error",
+        description: "Failed to get AI response. Please try again.",
+        variant: "destructive"
+      });
+    } finally {
+      setIsLoading(false);
+      setMessage("");
+      setIsOpen(false);
+    }
   };
 
   if (!isOpen) {
@@ -99,11 +143,15 @@ export const FloatingChat = () => {
           />
           <Button
             onClick={handleSend}
-            disabled={!message.trim() || !selectedDocument}
+            disabled={!message.trim() || !selectedDocument || isLoading}
             size="sm"
             className="absolute right-1 top-1 h-8 w-8 p-0"
           >
-            <Send className="w-3 h-3" />
+            {isLoading ? (
+              <div className="w-3 h-3 border border-current border-t-transparent rounded-full animate-spin" />
+            ) : (
+              <Send className="w-3 h-3" />
+            )}
           </Button>
         </div>
       </CardContent>

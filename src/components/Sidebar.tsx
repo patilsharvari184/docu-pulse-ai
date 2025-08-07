@@ -22,6 +22,7 @@ import {
 } from "lucide-react";
 import { useApp, type PDFDocument } from "@/contexts/AppContext";
 import { useToast } from "@/hooks/use-toast";
+import { ExternalLinkProcessor } from "./ExternalLinkProcessor";
 
 export const Sidebar = () => {
   const { documents, selectedDocument, setSelectedDocument, uploadDocument, isUploading } = useApp();
@@ -125,6 +126,11 @@ export const Sidebar = () => {
             onChange={handleFileChange}
             className="hidden"
           />
+        </div>
+
+        {/* External Link Processor */}
+        <div className="mb-4">
+          <ExternalLinkProcessor />
         </div>
 
         {/* Search */}
