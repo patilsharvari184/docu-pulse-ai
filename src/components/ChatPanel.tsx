@@ -65,7 +65,7 @@ export const ChatPanel = () => {
       // Format citations for display
       const citations = response.citations.map(citation => citation.source);
       const hasTableReference = response.citations.some(citation => 
-        citation.text.toLowerCase().includes('table') || citation.source.toLowerCase().includes('table')
+        citation.text?.toLowerCase().includes('table') || citation.source?.toLowerCase().includes('table')
       );
       
       const aiResponse: ChatMessage = {
@@ -155,7 +155,7 @@ export const ChatPanel = () => {
                       <div className="flex flex-wrap gap-1">
                         {msg.citations.map((citation, index) => (
                           <Badge key={index} variant="secondary" className="text-xs">
-                            {citation}
+                            📄 {citation}
                           </Badge>
                         ))}
                         {msg.tableReference && (

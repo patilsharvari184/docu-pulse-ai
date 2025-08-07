@@ -44,8 +44,8 @@ export const uploadPDFs = async (files: File[]): Promise<UploadResponse> => {
   return response.data;
 };
 
-export const processExternalLink = async (link: string): Promise<ExternalLinkResponse> => {
-  const response = await api.post('/document/process-external-link/', { link });
+export const processExternalLink = async (url: string): Promise<ExternalLinkResponse> => {
+  const response = await api.post('/document/process-external-link/', { url });
   return response.data;
 };
 

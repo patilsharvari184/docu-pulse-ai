@@ -55,7 +55,7 @@ export const FloatingChat = () => {
       // Format citations for display
       const citations = response.citations.map(citation => citation.source);
       const hasTableReference = response.citations.some(citation => 
-        citation.text.toLowerCase().includes('table') || citation.source.toLowerCase().includes('table')
+        citation.text?.toLowerCase().includes('table') || citation.source?.toLowerCase().includes('table')
       );
       
       // Add AI response
