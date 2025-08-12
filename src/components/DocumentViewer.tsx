@@ -1,5 +1,6 @@
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { useEffect } from "react";
 import {
   ZoomIn,
   ZoomOut,
@@ -31,14 +32,24 @@ export const DocumentViewer = () => {
       description: `Downloading ${selectedDocument?.name}...`,
     });
   };
+  useEffect(() => {
+    if (selectedDocument) {
+      // Fetch document details if needed
+      fetch(`http://127.0.0.1:8000/api/documents/${selectedDocument.id}`)
+        .then((response) => response.json())
+        .then((data) => {
+          // Handle the fetched document details
+        });
+    }
+  }, [selectedDocument]);
 
+  
   const handleShare = () => {
     toast({
       title: "Share link copied",
       description: "Document share link copied to clipboard.",
     });
-  };
-
+  }
   if (!selectedDocument) {
     return (
       <div className="flex-1 flex items-center justify-center bg-neutral-100">
